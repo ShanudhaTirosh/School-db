@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard — SchoolForm</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="app-wrapper">
+
+  <!-- Sidebar injected here -->
+  <div id="sidebar-mount"></div>
+
+  <div class="main-content">
+
+    <!-- Topbar injected here -->
+    <div id="topbar-mount"></div>
+
+    <div class="page-content">
+
+      <!-- Stats Row -->
+      <div class="row g-3 mb-4 stagger-children" id="stats-row">
+        <div class="col-6 col-xl-3">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:#dbeafe;color:#2563eb">
+              <i class="bi bi-people-fill"></i>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value" id="stat-students">—</div>
+              <div class="stat-label">Total Responses</div>
+              <div class="stat-change text-success"><i class="bi bi-arrow-up-short"></i> Live data</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-xl-3">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:#dcfce7;color:#16a34a">
+              <i class="bi bi-collection-fill"></i>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value" id="stat-forms">—</div>
+              <div class="stat-label">Total Forms</div>
+              <div class="stat-change text-success"><i class="bi bi-arrow-up-short"></i> Active</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-xl-3">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:#fef9c3;color:#ca8a04">
+              <i class="bi bi-globe2"></i>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value" id="stat-published">—</div>
+              <div class="stat-label">Published Forms</div>
+              <div class="stat-change" style="color:#ca8a04"><i class="bi bi-circle-fill" style="font-size:8px"></i> Live</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-xl-3">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:#fce7f3;color:#db2777">
+              <i class="bi bi-person-check-fill"></i>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value" id="stat-users">—</div>
+              <div class="stat-label">Team Members</div>
+              <div class="stat-change" style="color:#db2777"><i class="bi bi-people"></i> All roles</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Middle Row -->
+      <div class="row g-3 mb-4">
+
+        <!-- Submissions chart -->
+        <div class="col-lg-8">
+          <div class="card h-100">
+            <div class="card-header">
+              <i class="bi bi-bar-chart-fill text-primary"></i>
+              <span class="fw-600">Submissions Overview</span>
+              <span class="badge bg-primary-light text-primary ms-2" style="font-size:11px">Last 7 Days</span>
+            </div>
+            <div class="card-body" style="height:260px;position:relative">
+              <canvas id="submissions-chart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Forms donut -->
+        <div class="col-lg-4">
+          <div class="card h-100">
+            <div class="card-header">
+              <i class="bi bi-pie-chart-fill" style="color:#8b5cf6"></i>
+              <span class="fw-600">Forms Status</span>
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-center" style="height:260px;position:relative">
+              <canvas id="forms-chart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Row -->
+      <div class="row g-3">
+
+        <!-- Recent forms -->
+        <div class="col-lg-7">
+          <div class="card">
+            <div class="card-header d-flex align-items-center">
+              <i class="bi bi-collection text-primary"></i>
+              <span class="fw-600 ms-2">Recent Forms</span>
+              <a href="forms.html" class="btn btn-sm btn-light ms-auto" style="font-size:12px">View All <i class="bi bi-arrow-right ms-1"></i></a>
+            </div>
+            <div class="card-body p-0">
+              <div id="recent-forms-list" class="p-3">
+                <div class="loading-spinner"><div class="spinner-border spinner-border-sm text-primary" role="status"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Activity log -->
+        <div class="col-lg-5">
+          <div class="card">
+            <div class="card-header">
+              <i class="bi bi-activity" style="color:#10b981"></i>
+              <span class="fw-600 ms-2">Recent Activity</span>
+            </div>
+            <div class="card-body" id="activity-log" style="max-height:320px;overflow-y:auto">
+              <div class="loading-spinner"><div class="spinner-border spinner-border-sm text-primary" role="status"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /page-content -->
+  </div><!-- /main-content -->
+</div><!-- /app-wrapper -->
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script src="firebase/firebase-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/rbac.js"></script>
+<script src="js/firestore.js"></script>
+<script src="components/shell.js"></script>
+
+<script>
+initTheme();
+
+Auth.requireAuth(async (user, profile) => {
+  // Render shell
+  const { sidebarHTML, topbarHTML } = renderShell("dashboard");
+  document.getElementById("sidebar-mount").innerHTML = sidebarHTML;
+  document.getElementById("topbar-mount").innerHTML  = topbarHTML;
+  document.getElementById("page-title").textContent  = "Dashboard";
+  Auth.populateTopbar(profile);
+  updateSidebarUser(profile);
+  RBAC.applyRoleUI(profile.role);
+
+  // Load data
+  await Promise.all([loadStats(), loadRecentForms(), loadActivity()]);
+  renderCharts();
+});
+
+function updateSidebarUser(p) {
+  const a = document.getElementById("sidebar-avatar");
+  const n = document.getElementById("sidebar-name");
+  const r = document.getElementById("sidebar-role");
+  if (a) a.textContent = (p.name || p.email || "?")[0].toUpperCase();
+  if (n) n.textContent = p.name || p.email;
+  if (r) r.textContent = capitalize(p.role);
+}
+function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : ""; }
+
+let chartStats = { forms: 0, published: 0 };
+
+async function loadStats() {
+  try {
+    const s = await FS.getStats();
+    document.getElementById("stat-students").textContent  = s.totalResponses.toLocaleString();
+    document.getElementById("stat-forms").textContent     = s.totalForms.toLocaleString();
+    document.getElementById("stat-published").textContent = s.publishedForms.toLocaleString();
+    document.getElementById("stat-users").textContent     = s.totalUsers.toLocaleString();
+    chartStats = { total: s.totalForms, published: s.publishedForms, drafts: s.totalForms - s.publishedForms };
+  } catch (e) {
+    console.error("Stats error:", e);
+    ["stat-students","stat-forms","stat-published","stat-users"].forEach(id => {
+      document.getElementById(id).textContent = "0";
+    });
+  }
+}
+
+async function loadRecentForms() {
+  try {
+    const forms = await FS.getForms();
+    const container = document.getElementById("recent-forms-list");
+    if (!forms.length) {
+      container.innerHTML = `<div class="empty-state"><i class="bi bi-collection"></i><h5>No forms yet</h5><p>Create your first form in the Form Builder.</p><a href="form-builder.html" class="btn btn-sm btn-primary mt-2">Create Form</a></div>`;
+      return;
+    }
+    container.innerHTML = forms.slice(0, 5).map(f => `
+      <div class="form-list-item">
+        <div class="form-list-icon"><i class="bi bi-file-earmark-text"></i></div>
+        <div class="flex-grow-1 min-width-0">
+          <div style="font-weight:600;font-size:14px">${escHtml(f.title)}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${f.responseCount || 0} responses · ${fmtDate(f.createdAt)}</div>
+        </div>
+        <span class="badge ${f.published ? "bg-success" : "bg-secondary"}" style="font-size:11px">${f.published ? "Published" : "Draft"}</span>
+        <a href="responses.html?formId=${f.id}" class="btn btn-sm btn-light ms-2" style="font-size:12px" title="View responses"><i class="bi bi-eye"></i></a>
+      </div>`).join("");
+  } catch (e) {
+    document.getElementById("recent-forms-list").innerHTML = `<div class="p-3 text-muted text-center" style="font-size:13px">Could not load forms.</div>`;
+  }
+}
+
+async function loadActivity() {
+  try {
+    const logs = await FS.getActivityLogs(15);
+    const container = document.getElementById("activity-log");
+    if (!logs.length) {
+      container.innerHTML = `<div class="empty-state"><i class="bi bi-activity"></i><h5>No activity yet</h5></div>`;
+      return;
+    }
+    const iconMap = {
+      login:           { icon: "bi-box-arrow-in-right", color: "#10b981", bg: "#dcfce7" },
+      logout:          { icon: "bi-box-arrow-right",    color: "#6b7280", bg: "#f3f4f6" },
+      "form.create":   { icon: "bi-plus-circle",        color: "#2563eb", bg: "#dbeafe" },
+      "form.update":   { icon: "bi-pencil",             color: "#f59e0b", bg: "#fef9c3" },
+      "form.delete":   { icon: "bi-trash",              color: "#ef4444", bg: "#fee2e2" },
+      "form.publish":  { icon: "bi-globe2",             color: "#8b5cf6", bg: "#ede9fe" },
+      "response.delete":{ icon: "bi-trash",             color: "#ef4444", bg: "#fee2e2" },
+      "user.update":   { icon: "bi-person",             color: "#06b6d4", bg: "#cffafe" },
+    };
+    container.innerHTML = logs.map(log => {
+      const meta = iconMap[log.type] || { icon: "bi-circle", color: "#64748b", bg: "#f1f5f9" };
+      return `<div class="activity-item">
+        <div class="activity-icon" style="background:${meta.bg};color:${meta.color}">
+          <i class="bi ${meta.icon}"></i>
+        </div>
+        <div class="flex-grow-1">
+          <div style="font-size:13px">${escHtml(log.message)}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${fmtTime(log.timestamp)}</div>
+        </div>
+      </div>`;
+    }).join("");
+  } catch (e) {
+    document.getElementById("activity-log").innerHTML = `<div class="p-3 text-muted text-center" style="font-size:13px">Could not load activity.</div>`;
+  }
+}
+
+function renderCharts() {
+  // Submissions bar chart (mock weekly data — replace with real query)
+  const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  const data  = [4,7,5,12,9,3,8];
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  const gridColor = isDark ? "rgba(255,255,255,.06)" : "rgba(0,0,0,.05)";
+  const textColor = isDark ? "#94a3b8" : "#64748b";
+
+  const ctx1 = document.getElementById("submissions-chart").getContext("2d");
+  new Chart(ctx1, {
+    type: "bar",
+    data: {
+      labels: days,
+      datasets: [{
+        label: "Submissions",
+        data,
+        backgroundColor: "rgba(37,99,235,.75)",
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { color: textColor, font: { family: "Outfit", size: 12 } } },
+        y: { grid: { color: gridColor }, ticks: { color: textColor, font: { family: "Outfit", size: 12 } }, beginAtZero: true }
+      }
+    }
+  });
+
+  // Forms doughnut
+  const ctx2 = document.getElementById("forms-chart").getContext("2d");
+  new Chart(ctx2, {
+    type: "doughnut",
+    data: {
+      labels: ["Published","Drafts"],
+      datasets: [{
+        data: [chartStats.published || 0, chartStats.drafts || 0],
+        backgroundColor: ["#2563eb","#e2e8f0"],
+        borderWidth: 0,
+        borderRadius: 4,
+        hoverOffset: 4
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: "72%",
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: { color: textColor, font: { family: "Outfit", size: 12 }, padding: 16, usePointStyle: true }
+        }
+      }
+    }
+  });
+}
+
+function escHtml(s) {
+  return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+</script>
+</body>
+</html>

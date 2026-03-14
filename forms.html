@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manage Forms — SchoolForm</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-wrapper">
+  <div id="sidebar-mount"></div>
+  <div class="main-content">
+    <div id="topbar-mount"></div>
+    <div class="page-content">
+
+      <!-- Header -->
+      <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+        <div>
+          <h5 class="mb-1 fw-700">Manage Forms</h5>
+          <p class="text-muted mb-0" style="font-size:13px">Create, edit and manage all your data collection forms.</p>
+        </div>
+        <div class="d-flex gap-2" data-require-role="admin">
+          <a href="form-builder.html" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-circle me-1"></i>New Form
+          </a>
+        </div>
+      </div>
+
+      <!-- Search + filter -->
+      <div class="card mb-3">
+        <div class="card-body py-3">
+          <div class="row g-2 align-items-center">
+            <div class="col-md-6">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" id="search-input" class="form-control" placeholder="Search forms…" oninput="filterForms()">
+              </div>
+            </div>
+            <div class="col-md-3">
+              <select class="form-select form-select-sm" id="filter-status" onchange="filterForms()">
+                <option value="">All Status</option>
+                <option value="published">Published</option>
+                <option value="draft">Draft</option>
+              </select>
+            </div>
+            <div class="col-md-3 text-md-end">
+              <span class="text-muted" style="font-size:13px"><span id="form-count">0</span> forms found</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Forms grid -->
+      <div id="forms-container">
+        <div class="loading-spinner"><div class="spinner-border text-primary" role="status"></div></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Delete confirm modal (shared via shell.js) -->
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script src="firebase/firebase-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/rbac.js"></script>
+<script src="js/firestore.js"></script>
+<script src="components/shell.js"></script>
+
+<script>
+initTheme();
+let allForms = [];
+let userRole = "viewer";
+
+Auth.requireStaff(async (user, profile) => {
+  userRole = profile.role;
+  const { sidebarHTML, topbarHTML } = renderShell("forms");
+  document.getElementById("sidebar-mount").innerHTML = sidebarHTML;
+  document.getElementById("topbar-mount").innerHTML  = topbarHTML;
+  document.getElementById("page-title").textContent  = "Manage Forms";
+  Auth.populateTopbar(profile);
+  updateSidebarUser(profile);
+  RBAC.applyRoleUI(profile.role);
+  await loadForms();
+});
+
+function updateSidebarUser(p) {
+  const a = document.getElementById("sidebar-avatar"), n = document.getElementById("sidebar-name"), r = document.getElementById("sidebar-role");
+  if(a) a.textContent = (p.name||p.email||"?")[0].toUpperCase();
+  if(n) n.textContent = p.name||p.email;
+  if(r) r.textContent = p.role[0].toUpperCase()+p.role.slice(1);
+}
+
+async function loadForms() {
+  try {
+    allForms = await FS.getForms();
+    renderForms(allForms);
+  } catch(e) {
+    document.getElementById("forms-container").innerHTML =
+      `<div class="alert alert-danger"><i class="bi bi-x-circle me-2"></i>${e.message}</div>`;
+  }
+}
+
+function renderForms(forms) {
+  const container = document.getElementById("forms-container");
+  document.getElementById("form-count").textContent = forms.length;
+
+  if (!forms.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <i class="bi bi-collection"></i>
+        <h5>No forms found</h5>
+        <p>Create your first form to start collecting student data.</p>
+        ${userRole === "admin" ? `<a href="form-builder.html" class="btn btn-primary btn-sm mt-2">Create Form</a>` : ""}
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = `<div class="row g-3 stagger-children">` +
+    forms.map(f => `
+      <div class="col-md-6 col-xl-4">
+        <div class="card h-100" style="transition:transform .2s,box-shadow .2s" onmouseenter="this.style.transform='translateY(-3px)';this.style.boxShadow='var(--shadow-md)'" onmouseleave="this.style.transform='';this.style.boxShadow=''">
+          <div class="card-body">
+            <div class="d-flex align-items-start gap-3 mb-3">
+              <div style="width:44px;height:44px;background:var(--primary-light);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <i class="bi bi-file-earmark-text" style="color:var(--primary);font-size:18px"></i>
+              </div>
+              <div class="flex-grow-1 min-width-0">
+                <h6 class="mb-1 fw-700" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(f.title)}</h6>
+                <p class="text-muted mb-0" style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(f.description||"No description")}</p>
+              </div>
+              <span class="badge ${f.published?"bg-success":"bg-secondary"}" style="flex-shrink:0;font-size:11px">${f.published?"Live":"Draft"}</span>
+            </div>
+
+            <div class="row g-2 mb-3" style="font-size:12px">
+              <div class="col-4 text-center" style="padding:8px;background:var(--body-bg);border-radius:8px">
+                <div style="font-weight:700;font-size:16px;color:var(--primary)">${f.responseCount||0}</div>
+                <div class="text-muted">Responses</div>
+              </div>
+              <div class="col-4 text-center" style="padding:8px;background:var(--body-bg);border-radius:8px">
+                <div style="font-weight:700;font-size:16px">${(f.fields||[]).length}</div>
+                <div class="text-muted">Fields</div>
+              </div>
+              <div class="col-4 text-center" style="padding:8px;background:var(--body-bg);border-radius:8px">
+                <div style="font-weight:600;font-size:12px;color:var(--text-muted)">${fmtDate(f.createdAt)}</div>
+                <div class="text-muted">Created</div>
+              </div>
+            </div>
+
+            <div class="d-flex gap-2 flex-wrap">
+              <a href="responses.html?formId=${f.id}" class="btn btn-sm btn-light flex-grow-1" style="font-size:12px">
+                <i class="bi bi-table me-1"></i>Responses
+              </a>
+              <a href="form-view.html?id=${f.id}" class="btn btn-sm btn-light" target="_blank" title="Open form" style="font-size:12px">
+                <i class="bi bi-box-arrow-up-right"></i>
+              </a>
+              ${userRole === "admin" ? `
+              <a href="form-builder.html?id=${f.id}" class="btn btn-sm btn-light" title="Edit" style="font-size:12px"><i class="bi bi-pencil"></i></a>
+              <button class="btn btn-sm btn-light" title="${f.published?"Unpublish":"Publish"}" onclick="togglePublish('${f.id}',${f.published})" style="font-size:12px">
+                <i class="bi ${f.published?"bi-pause-circle":"bi-globe2"}"></i>
+              </button>
+              <button class="btn btn-sm btn-light text-danger" title="Delete" onclick="deleteForm('${f.id}','${escHtml(f.title)}')" style="font-size:12px">
+                <i class="bi bi-trash"></i>
+              </button>` : ""}
+            </div>
+
+            ${f.published ? `
+            <div class="mt-2 p-2" style="background:var(--body-bg);border-radius:8px">
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;font-weight:600">Public Form URL</div>
+              <div class="d-flex align-items-center gap-1">
+                <code style="font-size:10px;flex-grow:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">…/form-view.html?id=${f.id}</code>
+                <button class="btn btn-sm btn-light" style="font-size:10px;padding:2px 6px" onclick="copyUrl('${f.id}')" title="Copy URL">
+                  <i class="bi bi-copy"></i>
+                </button>
+              </div>
+            </div>` : ""}
+          </div>
+        </div>
+      </div>`).join("") + `</div>`;
+}
+
+function filterForms() {
+  const q   = document.getElementById("search-input").value.toLowerCase();
+  const st  = document.getElementById("filter-status").value;
+  const filtered = allForms.filter(f => {
+    const matchQ  = !q || f.title.toLowerCase().includes(q) || (f.description||"").toLowerCase().includes(q);
+    const matchSt = !st || (st === "published" ? f.published : !f.published);
+    return matchQ && matchSt;
+  });
+  renderForms(filtered);
+}
+
+async function togglePublish(formId, current) {
+  try {
+    await FS.publishForm(formId, !current);
+    showToast(current ? "Form unpublished." : "Form is now live!", current ? "info" : "success");
+    await loadForms();
+  } catch(e) { showToast(e.message, "danger"); }
+}
+
+async function deleteForm(formId, title) {
+  const ok = await confirmAction(`Delete "${title}" and all its responses? This cannot be undone.`, "Delete Form");
+  if (!ok) return;
+  try {
+    await FS.deleteForm(formId);
+    showToast("Form deleted.", "success");
+    await loadForms();
+  } catch(e) { showToast(e.message, "danger"); }
+}
+
+function copyUrl(formId) {
+  const url = `${location.origin}${location.pathname.replace("forms.html","")}form-view.html?id=${formId}`;
+  navigator.clipboard.writeText(url).then(() => showToast("URL copied to clipboard!", "success")).catch(() => {});
+}
+
+function escHtml(s) { return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+</script>
+</body>
+</html>
