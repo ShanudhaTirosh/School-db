@@ -8,70 +8,142 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
   <link rel="stylesheet" href="css/style.css">
   <style>
-    .builder-layout { display:grid; grid-template-columns:220px 1fr 300px; gap:16px; height:calc(100vh - 130px); }
-    @media(max-width:1199px){ .builder-layout{ grid-template-columns:1fr; height:auto; } .builder-props{ display:none; } }
-    .form-canvas { min-height:200px; }
-    .option-row { display:flex; gap:6px; align-items:center; margin-bottom:6px; }
+    .builder-layout {
+      display: grid;
+      grid-template-columns: 210px 1fr 300px;
+      gap: 14px;
+      height: calc(100vh - 148px);
+    }
+    @media(max-width:1199px){
+      .builder-layout { grid-template-columns: 1fr; height: auto; }
+      #props-panel    { display: none !important; }
+    }
+
+    /* Drag grip - ONLY this is the sortable handle so card clicks still work */
+    .drag-grip {
+      cursor: grab;
+      color: var(--text-muted);
+      padding: 2px 7px 2px 4px;
+      font-size: 16px;
+      user-select: none;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .drag-grip:active { cursor: grabbing; }
+
+    /* Field card */
+    .field-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 4px;
+      background: var(--card-bg);
+      border: 2px solid var(--border-color);
+      border-radius: 10px;
+      padding: 11px 11px 11px 6px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: border-color .16s, box-shadow .16s;
+      position: relative;
+    }
+    .field-card:hover    { border-color: #93c5fd; }
+    .field-card.selected { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.13); }
+
+    .field-card-body   { flex: 1; min-width: 0; }
+    .field-card-label  { font-weight: 600; font-size: 13.5px; margin-bottom: 6px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+    .field-type-tag    { font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding: 2px 7px; background: var(--primary-light); color: var(--primary); border-radius: 4px; }
+    .req-star          { color: #ef4444; }
+
+    .field-card-actions { display: flex; gap: 3px; opacity: 0; transition: opacity .15s; flex-shrink: 0; margin-top: 2px; }
+    .field-card:hover .field-card-actions { opacity: 1; }
+
+    .preview-wrap         { pointer-events: none; }
+    .preview-wrap .form-control,
+    .preview-wrap .form-select { font-size: 12.5px; padding: 5px 10px; }
+
+    /* Canvas */
+    #cards-container { min-height: 20px; }
+    .canvas-drop-zone {
+      border: 2px dashed var(--border-color);
+      border-radius: 10px;
+      padding: 48px 20px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13.5px;
+      transition: border-color .2s, background .2s;
+    }
+    .canvas-drop-zone.drag-over { border-color: var(--primary); background: var(--primary-light); }
+
+    /* Options */
+    .opt-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+    .opt-grip { cursor: grab; color: var(--text-muted); font-size: 14px; padding: 0 2px; user-select: none; flex-shrink: 0; }
+
+    /* Props panel */
+    .prop-sec       { padding: 14px; border-bottom: 1px solid var(--border-color); }
+    .prop-sec:last-child { border-bottom: none; }
+    .prop-sec-title { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin-bottom: 10px; }
+    .props-empty    { text-align: center; padding: 48px 16px; color: var(--text-muted); }
+    .props-empty i  { font-size: 2.5rem; opacity: .2; display: block; margin-bottom: 12px; }
   </style>
 </head>
 <body>
+
 <div class="app-wrapper">
   <div id="sidebar-mount"></div>
   <div class="main-content">
     <div id="topbar-mount"></div>
 
-    <div class="page-content pt-3">
+    <div class="page-content" style="padding-top:14px">
 
-      <!-- Builder Toolbar -->
+      <!-- Toolbar -->
       <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-        <input type="text" id="form-title-input" class="form-control" placeholder="Untitled Form" style="max-width:320px;font-weight:600;font-size:15px">
-        <input type="text" id="form-desc-input" class="form-control" placeholder="Form description (optional)" style="max-width:300px;font-size:13px">
+        <input type="text" id="form-title-input" class="form-control"
+               placeholder="Untitled Form"
+               style="max-width:300px;font-weight:600;font-size:15px">
+        <input type="text" id="form-desc-input" class="form-control"
+               placeholder="Form description (optional)"
+               style="max-width:280px;font-size:13px">
         <div class="ms-auto d-flex gap-2 flex-wrap">
-          <button class="btn btn-light btn-sm" onclick="previewForm()"><i class="bi bi-eye me-1"></i>Preview</button>
+          <button class="btn btn-light btn-sm"         onclick="previewForm()">   <i class="bi bi-eye me-1"></i>Preview</button>
           <button class="btn btn-outline-primary btn-sm" onclick="saveForm(false)"><i class="bi bi-floppy me-1"></i>Save Draft</button>
-          <button class="btn btn-success btn-sm" onclick="saveForm(true)"><i class="bi bi-globe2 me-1"></i>Publish</button>
+          <button class="btn btn-success btn-sm"        onclick="saveForm(true)"> <i class="bi bi-globe2 me-1"></i>Publish</button>
         </div>
       </div>
 
-      <!-- Builder 3-column layout -->
+      <!-- 3-col layout -->
       <div class="builder-layout">
 
-        <!-- Left: Field palette -->
+        <!-- LEFT palette -->
         <div class="builder-panel">
-          <div class="builder-panel-header"><i class="bi bi-grid-3x3-gap-fill"></i> Fields</div>
-          <div class="builder-panel-body">
-            <div id="field-palette">
-              <!-- Generated by JS -->
-            </div>
-          </div>
+          <div class="builder-panel-header"><i class="bi bi-grid-3x3-gap-fill"></i><span class="ms-1">Field Types</span></div>
+          <div class="builder-panel-body" style="padding:10px"><div id="field-palette"></div></div>
         </div>
 
-        <!-- Center: Canvas -->
+        <!-- CENTER canvas -->
         <div class="builder-panel">
           <div class="builder-panel-header d-flex align-items-center">
             <i class="bi bi-layout-text-window-reverse"></i>
-            <span class="ms-1">Form Canvas</span>
-            <span class="badge bg-primary-light text-primary ms-auto" style="font-size:11px" id="field-count">0 fields</span>
+            <span class="ms-1">Canvas</span>
+            <span id="field-count" class="badge ms-auto"
+                  style="background:var(--primary-light);color:var(--primary);font-size:11px">0 fields</span>
           </div>
-          <div class="builder-panel-body">
-            <div id="form-canvas" class="form-canvas">
-              <div id="canvas-empty" class="form-canvas-empty">
-                <i class="bi bi-plus-circle" style="font-size:2rem;opacity:.3;display:block;margin-bottom:12px"></i>
-                <div style="font-weight:600;margin-bottom:4px">Drop fields here</div>
-                <div style="font-size:12px">Drag fields from the left panel or click to add them</div>
-              </div>
+          <div class="builder-panel-body" id="canvas-scroll">
+            <div id="canvas-drop" class="canvas-drop-zone">
+              <i class="bi bi-plus-circle" style="font-size:2.2rem;opacity:.25;display:block;margin-bottom:12px"></i>
+              <div style="font-weight:600;margin-bottom:4px">Drop fields here</div>
+              <div style="font-size:12px">Drag from the left, or click a field type to add it</div>
             </div>
+            <div id="cards-container"></div>
           </div>
         </div>
 
-        <!-- Right: Properties -->
-        <div class="builder-panel builder-props" id="props-panel">
-          <div class="builder-panel-header"><i class="bi bi-sliders"></i> Properties</div>
-          <div class="builder-panel-body" id="props-body">
-            <div class="empty-state" style="padding:40px 16px">
-              <i class="bi bi-cursor-fill" style="font-size:2rem"></i>
-              <h6 class="mt-2">Select a field</h6>
-              <p style="font-size:12px">Click on a field in the canvas to edit its properties.</p>
+        <!-- RIGHT props -->
+        <div class="builder-panel" id="props-panel">
+          <div class="builder-panel-header"><i class="bi bi-sliders"></i><span class="ms-1">Field Properties</span></div>
+          <div id="props-body" style="overflow-y:auto;flex:1">
+            <div class="props-empty">
+              <i class="bi bi-hand-index-thumb"></i>
+              <div style="font-weight:600;font-size:14px;margin-bottom:6px">Select a field</div>
+              <div style="font-size:12px">Click any field card on the canvas to edit its settings here</div>
             </div>
           </div>
         </div>
@@ -81,7 +153,7 @@
   </div>
 </div>
 
-<!-- Preview Modal -->
+<!-- Preview modal -->
 <div class="modal fade" id="preview-modal" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content">
@@ -107,331 +179,418 @@
 <script src="components/shell.js"></script>
 
 <script>
+'use strict';
 initTheme();
 
-// ── Field type definitions ──────────────────────────────────
+/* ─────────────────────────────────────────────────────────
+   FIELD TYPE CONFIG
+───────────────────────────────────────────────────────── */
 const FIELD_TYPES = [
-  { type:"text",      label:"Short Text",   icon:"bi-input-cursor-text",  previewTag:"input" },
-  { type:"textarea",  label:"Long Text",    icon:"bi-text-paragraph",     previewTag:"textarea" },
-  { type:"number",    label:"Number",       icon:"bi-123",                previewTag:"input" },
-  { type:"email",     label:"Email",        icon:"bi-envelope",           previewTag:"input" },
-  { type:"phone",     label:"Phone",        icon:"bi-telephone",          previewTag:"input" },
-  { type:"dropdown",  label:"Dropdown",     icon:"bi-menu-button-wide",   previewTag:"select" },
-  { type:"radio",     label:"Radio Buttons",icon:"bi-ui-radios",          previewTag:"radio" },
-  { type:"checkbox",  label:"Checkboxes",   icon:"bi-check2-square",      previewTag:"checkbox" },
-  { type:"date",      label:"Date",         icon:"bi-calendar-event",     previewTag:"input" },
-  { type:"file",      label:"File Upload",  icon:"bi-cloud-upload",       previewTag:"file" },
+  { type:'text',     label:'Short Text',    icon:'bi-input-cursor-text' },
+  { type:'textarea', label:'Long Text',     icon:'bi-text-paragraph'   },
+  { type:'number',   label:'Number',        icon:'bi-123'              },
+  { type:'email',    label:'Email',         icon:'bi-envelope'         },
+  { type:'phone',    label:'Phone',         icon:'bi-telephone'        },
+  { type:'dropdown', label:'Dropdown',      icon:'bi-menu-button-wide' },
+  { type:'radio',    label:'Radio Buttons', icon:'bi-ui-radios'        },
+  { type:'checkbox', label:'Checkboxes',    icon:'bi-check2-square'    },
+  { type:'date',     label:'Date Picker',   icon:'bi-calendar-event'   },
+  { type:'file',     label:'File Upload',   icon:'bi-cloud-upload'     },
 ];
 
-// Form state
-let formFields   = [];   // array of field objects
-let selectedId   = null; // currently selected field id
-let editingFormId = null; // if editing existing form
+/* ─────────────────────────────────────────────────────────
+   STATE
+───────────────────────────────────────────────────────── */
+let formFields    = [];
+let selectedId    = null;
+let editingFormId = null;
 
-// ── Initialize ──────────────────────────────────────────────
+/* ─────────────────────────────────────────────────────────
+   BOOT
+───────────────────────────────────────────────────────── */
 Auth.requireAdmin(async (user, profile) => {
-  const { sidebarHTML, topbarHTML } = renderShell("form-builder");
-  document.getElementById("sidebar-mount").innerHTML = sidebarHTML;
-  document.getElementById("topbar-mount").innerHTML  = topbarHTML;
-  document.getElementById("page-title").textContent  = "Form Builder";
+  const { sidebarHTML, topbarHTML } = renderShell('form-builder');
+  document.getElementById('sidebar-mount').innerHTML = sidebarHTML;
+  document.getElementById('topbar-mount').innerHTML  = topbarHTML;
+  document.getElementById('page-title').textContent  = 'Form Builder';
   Auth.populateTopbar(profile);
-  updateSidebarUser(profile);
+  setSidebarUser(profile);
 
-  // Check if editing
   const params = new URLSearchParams(location.search);
-  editingFormId = params.get("id");
+  editingFormId = params.get('id');
   if (editingFormId) {
     const form = await FS.getForm(editingFormId);
     if (form) {
-      document.getElementById("form-title-input").value = form.title || "";
-      document.getElementById("form-desc-input").value  = form.description || "";
-      formFields = form.fields || [];
-      renderCanvas();
+      document.getElementById('form-title-input').value = form.title       || '';
+      document.getElementById('form-desc-input').value  = form.description || '';
+      formFields = (form.fields || []).map(normaliseField);
+      renderAllCards();
     }
   }
 
   buildPalette();
-  initSortable();
+  initCardSortable();
+  initCanvasDrop();
 });
 
-function updateSidebarUser(p) {
-  const a = document.getElementById("sidebar-avatar");
-  const n = document.getElementById("sidebar-name");
-  const r = document.getElementById("sidebar-role");
-  if(a) a.textContent = (p.name||p.email||"?")[0].toUpperCase();
-  if(n) n.textContent = p.name||p.email;
-  if(r) r.textContent = p.role[0].toUpperCase()+p.role.slice(1);
+function setSidebarUser(p) {
+  const a = document.getElementById('sidebar-avatar');
+  const n = document.getElementById('sidebar-name');
+  const r = document.getElementById('sidebar-role');
+  if (a) a.textContent = (p.name || p.email || '?')[0].toUpperCase();
+  if (n) n.textContent = p.name || p.email;
+  if (r) r.textContent = (p.role||'')[0].toUpperCase() + (p.role||'').slice(1);
 }
 
-// ── Build palette ───────────────────────────────────────────
+function normaliseField(f) {
+  return {
+    id:          f.id          || ('f_' + Date.now()),
+    type:        f.type        || 'text',
+    label:       f.label       || 'Untitled Field',
+    placeholder: f.placeholder || '',
+    required:    !!f.required,
+    helpText:    f.helpText    || '',
+    options:     Array.isArray(f.options) ? [...f.options] : []
+  };
+}
+
+/* ─────────────────────────────────────────────────────────
+   FIELD PALETTE
+───────────────────────────────────────────────────────── */
 function buildPalette() {
-  const container = document.getElementById("field-palette");
-  container.innerHTML = FIELD_TYPES.map(ft => `
-    <div class="field-palette-item" draggable="true"
+  document.getElementById('field-palette').innerHTML = FIELD_TYPES.map(ft => `
+    <div class="field-palette-item"
+         draggable="true"
          data-type="${ft.type}"
-         ondragstart="onPaletteDragStart(event)"
-         onclick="addFieldFromPalette('${ft.type}')">
+         ondragstart="onPaletteDrag(event)"
+         onclick="addField('${ft.type}')">
       <i class="bi ${ft.icon}"></i>
       <span>${ft.label}</span>
-    </div>`).join("");
+    </div>`).join('');
 }
 
-// ── Drag from palette ───────────────────────────────────────
-let draggingType = null;
-function onPaletteDragStart(e) {
-  draggingType = e.currentTarget.dataset.type;
-  e.dataTransfer.effectAllowed = "copy";
+/* ─────────────────────────────────────────────────────────
+   DRAG-FROM-PALETTE → DROP ON CANVAS
+───────────────────────────────────────────────────────── */
+let dragType = null;
+function onPaletteDrag(e) {
+  dragType = e.currentTarget.dataset.type;
+  e.dataTransfer.effectAllowed = 'copy';
 }
 
-const canvas = document.getElementById("form-canvas");
-canvas.addEventListener("dragover", e => { e.preventDefault(); canvas.classList.add("drag-over-active"); });
-canvas.addEventListener("dragleave", () => canvas.classList.remove("drag-over-active"));
-canvas.addEventListener("drop", e => {
-  e.preventDefault();
-  canvas.classList.remove("drag-over-active");
-  if (draggingType) { addFieldFromPalette(draggingType); draggingType = null; }
-});
+function initCanvasDrop() {
+  const zone   = document.getElementById('canvas-drop');
+  const scroll = document.getElementById('canvas-scroll');
+  scroll.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  scroll.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  scroll.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    if (dragType) { addField(dragType); dragType = null; }
+  });
+}
 
-// ── Add field ───────────────────────────────────────────────
-function addFieldFromPalette(type) {
-  const ft   = FIELD_TYPES.find(f => f.type === type);
-  const id   = "field_" + Date.now() + "_" + Math.random().toString(36).slice(2,6);
-  const field = {
-    id,
+/* ─────────────────────────────────────────────────────────
+   ADD / DELETE / DUPLICATE
+───────────────────────────────────────────────────────── */
+function addField(type) {
+  const ft  = FIELD_TYPES.find(f => f.type === type);
+  const hasOpts = ['dropdown','radio','checkbox'].includes(type);
+  const field = normaliseField({
+    id:          'f_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
     type,
     label:       ft.label,
-    placeholder: `Enter ${ft.label.toLowerCase()}…`,
-    required:    false,
-    helpText:    "",
-    options:     ["dropdown","radio","checkbox"].includes(type) ? ["Option 1","Option 2","Option 3"] : []
-  };
-  formFields.push(field);
-  renderCanvas();
-  selectField(id);
-  updateFieldCount();
-}
-
-// ── Render canvas ───────────────────────────────────────────
-function renderCanvas() {
-  const empty  = document.getElementById("canvas-empty");
-  const canvas = document.getElementById("form-canvas");
-
-  // Remove old cards
-  canvas.querySelectorAll(".form-field-card").forEach(el => el.remove());
-
-  if (!formFields.length) {
-    empty.style.display = "";
-    updateFieldCount();
-    return;
-  }
-  empty.style.display = "none";
-
-  formFields.forEach((field, idx) => {
-    const card = document.createElement("div");
-    card.className = "form-field-card" + (field.id === selectedId ? " selected" : "");
-    card.dataset.id = field.id;
-    card.onclick = () => selectField(field.id);
-
-    card.innerHTML = `
-      <div class="form-field-actions">
-        <button class="btn btn-icon btn-sm btn-light" onclick="event.stopPropagation();duplicateField('${field.id}')" title="Duplicate"><i class="bi bi-copy" style="font-size:11px"></i></button>
-        <button class="btn btn-icon btn-sm btn-light text-danger" onclick="event.stopPropagation();deleteField('${field.id}')" title="Delete"><i class="bi bi-trash" style="font-size:11px"></i></button>
-      </div>
-      <div style="padding-left:8px">
-        <div class="form-field-label">
-          ${escHtml(field.label)}
-          ${field.required ? '<span class="text-danger ms-1">*</span>' : ""}
-          <span class="form-field-type-badge">${field.type}</span>
-        </div>
-        <div class="field-preview">${renderFieldPreview(field)}</div>
-        ${field.helpText ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">${escHtml(field.helpText)}</div>` : ""}
-      </div>`;
-    canvas.appendChild(card);
+    placeholder: ['text','textarea','number','email','phone'].includes(type)
+                   ? 'Enter ' + ft.label.toLowerCase() + '…' : '',
+    options:     hasOpts ? ['Option 1','Option 2','Option 3'] : []
   });
-
-  // Re-init sortable on canvas
-  initSortable();
-  updateFieldCount();
+  formFields.push(field);
+  document.getElementById('cards-container').appendChild(buildCardEl(field));
+  refreshEmpty();
+  refreshCount();
+  selectField(field.id);
 }
 
-function renderFieldPreview(field) {
-  switch(field.type) {
-    case "text":
-    case "number":
-    case "email":
-    case "phone":
-      return `<input type="${field.type === "phone" ? "tel" : field.type}" class="form-control form-control-sm" placeholder="${escHtml(field.placeholder)}" disabled>`;
-    case "textarea":
-      return `<textarea class="form-control form-control-sm" rows="2" placeholder="${escHtml(field.placeholder)}" disabled></textarea>`;
-    case "date":
-      return `<input type="date" class="form-control form-control-sm" disabled>`;
-    case "dropdown":
-      return `<select class="form-select form-select-sm" disabled><option>${field.options[0] || "Select…"}</option></select>`;
-    case "radio":
-      return (field.options || []).slice(0,3).map(o => `
-        <div class="form-check"><input type="radio" class="form-check-input" disabled>
-        <label class="form-check-label" style="font-size:12px">${escHtml(o)}</label></div>`).join("");
-    case "checkbox":
-      return (field.options || []).slice(0,3).map(o => `
-        <div class="form-check"><input type="checkbox" class="form-check-input" disabled>
-        <label class="form-check-label" style="font-size:12px">${escHtml(o)}</label></div>`).join("");
-    case "file":
+function deleteField(id, e) {
+  if (e) e.stopPropagation();
+  formFields = formFields.filter(f => f.id !== id);
+  const el = document.querySelector('.field-card[data-id="'+id+'"]');
+  if (el) el.remove();
+  if (selectedId === id) { selectedId = null; showPropsEmpty(); }
+  refreshEmpty();
+  refreshCount();
+  showToast('Field removed.', 'info');
+}
+
+function duplicateField(id, e) {
+  if (e) e.stopPropagation();
+  const src   = formFields.find(f => f.id === id);
+  if (!src) return;
+  const clone = normaliseField(JSON.parse(JSON.stringify(src)));
+  clone.id    = 'f_' + Date.now() + '_d';
+  const idx   = formFields.findIndex(f => f.id === id);
+  formFields.splice(idx + 1, 0, clone);
+  const srcEl = document.querySelector('.field-card[data-id="'+id+'"]');
+  const newEl = buildCardEl(clone);
+  srcEl ? srcEl.after(newEl) : document.getElementById('cards-container').appendChild(newEl);
+  refreshCount();
+  selectField(clone.id);
+}
+
+/* ─────────────────────────────────────────────────────────
+   BUILD A SINGLE CARD ELEMENT
+   Important: only .drag-grip is the sortable handle
+   so the rest of the card remains fully clickable
+───────────────────────────────────────────────────────── */
+function buildCardEl(field) {
+  const div = document.createElement('div');
+  div.className  = 'field-card' + (field.id === selectedId ? ' selected' : '');
+  div.dataset.id = field.id;
+
+  // clicking anywhere on the card (except the action buttons) calls selectField
+  div.addEventListener('click', function() { selectField(this.dataset.id); });
+
+  div.innerHTML = `
+    <div class="drag-grip" title="Drag to reorder">⠿</div>
+    <div class="field-card-body">
+      <div class="field-card-label">
+        <span class="lbl-text">${esc(field.label)}</span>
+        ${field.required ? '<span class="req-star">*</span>' : ''}
+        <span class="field-type-tag">${field.type}</span>
+      </div>
+      <div class="preview-wrap">${previewHTML(field)}</div>
+      ${field.helpText ? '<div class="help-txt" style="font-size:11px;color:var(--text-muted);margin-top:4px">'+esc(field.helpText)+'</div>' : ''}
+    </div>
+    <div class="field-card-actions">
+      <button class="btn btn-icon btn-sm btn-light" title="Duplicate"
+              onclick="duplicateField('${field.id}',event)">
+        <i class="bi bi-copy" style="font-size:11px"></i></button>
+      <button class="btn btn-icon btn-sm btn-light text-danger" title="Delete"
+              onclick="deleteField('${field.id}',event)">
+        <i class="bi bi-trash" style="font-size:11px"></i></button>
+    </div>`;
+  return div;
+}
+
+/* Full re-render — only on page load & after drag reorder */
+function renderAllCards() {
+  document.getElementById('cards-container').innerHTML = '';
+  formFields.forEach(f => document.getElementById('cards-container').appendChild(buildCardEl(f)));
+  refreshEmpty();
+  refreshCount();
+}
+
+/* ─────────────────────────────────────────────────────────
+   FIELD PREVIEW HTML (disabled, display only)
+───────────────────────────────────────────────────────── */
+function previewHTML(f) {
+  const ph   = esc(f.placeholder || '');
+  const opts = f.options || [];
+  switch (f.type) {
+    case 'text':
+      return `<input type="text"   class="form-control form-control-sm" placeholder="${ph}" disabled>`;
+    case 'textarea':
+      return `<textarea             class="form-control form-control-sm" placeholder="${ph}" rows="2" disabled></textarea>`;
+    case 'number':
+      return `<input type="number" class="form-control form-control-sm" placeholder="${ph}" disabled>`;
+    case 'email':
+      return `<input type="email"  class="form-control form-control-sm" placeholder="${ph}" disabled>`;
+    case 'phone':
+      return `<input type="tel"    class="form-control form-control-sm" placeholder="${ph}" disabled>`;
+    case 'date':
+      return `<input type="date"   class="form-control form-control-sm" disabled>`;
+    case 'dropdown':
+      return `<select class="form-select form-select-sm" disabled>
+                <option value="">Select an option…</option>
+                ${opts.map(o=>`<option>${esc(o)}</option>`).join('')}
+              </select>`;
+    case 'radio':
+      return opts.slice(0,5).map(o=>
+        `<div class="form-check">
+           <input type="radio" class="form-check-input" disabled>
+           <label class="form-check-label" style="font-size:12px">${esc(o)}</label>
+         </div>`).join('');
+    case 'checkbox':
+      return opts.slice(0,5).map(o=>
+        `<div class="form-check">
+           <input type="checkbox" class="form-check-input" disabled>
+           <label class="form-check-label" style="font-size:12px">${esc(o)}</label>
+         </div>`).join('');
+    case 'file':
       return `<input type="file" class="form-control form-control-sm" disabled>`;
     default:
       return `<input type="text" class="form-control form-control-sm" disabled>`;
   }
 }
 
-// ── Sortable reorder ────────────────────────────────────────
-let sortableInstance;
-function initSortable() {
-  if (sortableInstance) sortableInstance.destroy();
-  sortableInstance = Sortable.create(canvas, {
-    animation: 200,
-    handle: ".form-field-card",
-    ghostClass: "sortable-ghost",
-    chosenClass: "sortable-chosen",
-    filter: "button, .form-field-actions",
-    preventOnFilter: false,
+/* ─────────────────────────────────────────────────────────
+   CARD-LEVEL SORTABLE
+   handle = '.drag-grip'  →  clicking anywhere else = normal click
+───────────────────────────────────────────────────────── */
+function initCardSortable() {
+  Sortable.create(document.getElementById('cards-container'), {
+    animation:  180,
+    handle:     '.drag-grip',       // ← ONLY the grip icon starts a drag
+    ghostClass: 'sortable-ghost',
     onEnd(evt) {
-      const id = evt.item.dataset.id;
-      const oldIdx = formFields.findIndex(f => f.id === id);
-      if (oldIdx === -1) return;
-      const [moved] = formFields.splice(oldIdx, 1);
-      formFields.splice(evt.newIndex - 1, 0, moved); // -1 for empty div
-      renderCanvas();
+      if (evt.oldIndex === evt.newIndex) return;
+      const [moved] = formFields.splice(evt.oldIndex, 1);
+      formFields.splice(evt.newIndex, 0, moved);
     }
   });
 }
 
-// ── Select field → highlight card + show properties ─────────
+/* ─────────────────────────────────────────────────────────
+   SELECT FIELD → highlight + open properties
+───────────────────────────────────────────────────────── */
 function selectField(id) {
-  // Remove selected class from all cards
-  document.querySelectorAll('.form-field-card').forEach(c => c.classList.remove('selected'));
-  // Add to clicked card
-  const card = document.querySelector(`.form-field-card[data-id="${id}"]`);
-  if (card) card.classList.add('selected');
-
+  document.querySelectorAll('.field-card').forEach(c => c.classList.remove('selected'));
+  const card = document.querySelector('.field-card[data-id="'+id+'"]');
+  if (card) { card.classList.add('selected'); card.scrollIntoView({block:'nearest',behavior:'smooth'}); }
   selectedId = id;
   const field = formFields.find(f => f.id === id);
-  if (!field) return;
-  renderProperties(field);
+  if (field) renderProps(field);
 }
 
-function renderProperties(field) {
-  const hasOptions = ["dropdown","radio","checkbox"].includes(field.type);
-  document.getElementById("props-body").innerHTML = `
-    <div class="prop-group">
-      <div class="prop-group-title">Label & Placeholder</div>
-      <div class="mb-2">
-        <label class="form-label">Field Label</label>
-        <input type="text" class="form-control form-control-sm" id="prop-label"
-               value="${escHtml(field.label)}"
-               oninput="updateProp('label', this.value)"
-               placeholder="e.g. Student Name">
-      </div>
-      ${!hasOptions && field.type !== "date" && field.type !== "file" ? `
-      <div>
-        <label class="form-label">Placeholder Text</label>
-        <input type="text" class="form-control form-control-sm" id="prop-placeholder"
-               value="${escHtml(field.placeholder || '')}"
-               oninput="updateProp('placeholder', this.value)"
-               placeholder="e.g. Enter your name…">
-      </div>` : ""}
+/* ─────────────────────────────────────────────────────────
+   PROPERTIES PANEL
+   renderProps() sets the panel HTML once when you click a card.
+   All inputs use oninput/onchange → setProp() which:
+     1. Updates formFields[] data
+     2. Calls patchCard() to update only that card's DOM
+   NO renderAllCards() is ever called from setProp / setOpt.
+   This preserves keyboard focus completely.
+───────────────────────────────────────────────────────── */
+function renderProps(field) {
+  const hasOpts = ['dropdown','radio','checkbox'].includes(field.type);
+  const hasPH   = ['text','textarea','number','email','phone'].includes(field.type);
+
+  document.getElementById('props-body').innerHTML = `
+
+    <div class="prop-sec">
+      <div class="prop-sec-title">Field Label</div>
+      <input type="text" class="form-control form-control-sm" id="pp-label"
+             value="${esc(field.label)}"
+             placeholder="e.g. Student Full Name"
+             oninput="setProp('label',this.value)">
+      <div class="form-text mt-1">The heading shown above this field</div>
     </div>
 
-    <div class="prop-group">
-      <div class="prop-group-title">Validation</div>
+    ${hasPH ? `
+    <div class="prop-sec">
+      <div class="prop-sec-title">Placeholder Text</div>
+      <input type="text" class="form-control form-control-sm" id="pp-ph"
+             value="${esc(field.placeholder||'')}"
+             placeholder="e.g. Enter your full name…"
+             oninput="setProp('placeholder',this.value)">
+      <div class="form-text mt-1">Ghost text inside the empty input box</div>
+    </div>` : ''}
+
+    <div class="prop-sec">
+      <div class="prop-sec-title">Validation</div>
       <div class="form-check form-switch">
-        <input class="form-check-input" type="checkbox" id="prop-required"
-               ${field.required ? "checked" : ""}
-               onchange="updateProp('required', this.checked)">
-        <label class="form-check-label" for="prop-required" style="font-size:13px">
-          Required field <small class="text-danger">*</small>
+        <input class="form-check-input" type="checkbox" role="switch" id="pp-req"
+               ${field.required?'checked':''}
+               onchange="setProp('required',this.checked)">
+        <label class="form-check-label" for="pp-req" style="font-size:13px">
+          Required &nbsp;<span class="text-danger fw-bold">*</span>
         </label>
       </div>
     </div>
 
-    <div class="prop-group">
-      <div class="prop-group-title">Help Text</div>
-      <input type="text" class="form-control form-control-sm" id="prop-help"
-             value="${escHtml(field.helpText || '')}"
-             placeholder="Hint shown below the field…"
-             oninput="updateProp('helpText', this.value)">
-      <div class="form-text">Optional guidance for the student</div>
+    <div class="prop-sec">
+      <div class="prop-sec-title">Help Text</div>
+      <input type="text" class="form-control form-control-sm" id="pp-help"
+             value="${esc(field.helpText||'')}"
+             placeholder="Optional hint for the student…"
+             oninput="setProp('helpText',this.value)">
+      <div class="form-text mt-1">Small note shown below the field</div>
     </div>
 
-    ${hasOptions ? `
-    <div class="prop-group">
+    ${hasOpts ? `
+    <div class="prop-sec">
       <div class="d-flex align-items-center justify-content-between mb-2">
-        <div class="prop-group-title mb-0">Choices</div>
-        <button class="btn btn-sm btn-primary" style="font-size:11px;padding:3px 10px;border-radius:6px"
-                onclick="addOption()">
-          <i class="bi bi-plus-lg me-1"></i>Add Choice
+        <div class="prop-sec-title mb-0">Choices</div>
+        <button class="btn btn-primary btn-sm"
+                style="font-size:11px;padding:3px 10px;border-radius:6px"
+                onclick="addChoice()">
+          <i class="bi bi-plus-lg me-1"></i>Add
         </button>
       </div>
-      <div id="options-list"></div>
-      ${!field.options || field.options.length === 0
-        ? `<div class="text-muted text-center py-2" style="font-size:12px;border:1px dashed var(--border-color);border-radius:6px">
-             No choices yet — click Add Choice
-           </div>` : ""}
-    </div>` : ""}
+      <div id="choices-list"></div>
+    </div>` : ''}
 
-    <div class="prop-group">
-      <div class="prop-group-title">Field Actions</div>
+    <div class="prop-sec">
+      <div class="prop-sec-title">Actions</div>
       <div class="d-flex gap-2">
-        <button class="btn btn-sm btn-light flex-grow-1"
-                onclick="duplicateField('${field.id}')">
+        <button class="btn btn-sm btn-light flex-grow-1" onclick="duplicateField('${field.id}',event)">
           <i class="bi bi-copy me-1"></i>Duplicate
         </button>
-        <button class="btn btn-sm btn-danger flex-grow-1"
-                onclick="deleteField('${field.id}')">
+        <button class="btn btn-sm btn-danger flex-grow-1" onclick="deleteField('${field.id}',event)">
           <i class="bi bi-trash me-1"></i>Delete
         </button>
       </div>
     </div>`;
 
-  // Populate options list after innerHTML is set
-  if (hasOptions) {
-    refreshOptionsList(field);
-  }
+  // Populate choices list after setting innerHTML
+  if (hasOpts) renderChoicesList();
+
+  // Auto-focus label input
+  const lbl = document.getElementById('pp-label');
+  if (lbl) { lbl.focus(); lbl.select(); }
 }
 
-function updateProp(key, value) {
+function showPropsEmpty() {
+  document.getElementById('props-body').innerHTML = `
+    <div class="props-empty">
+      <i class="bi bi-hand-index-thumb"></i>
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px">Select a field</div>
+      <div style="font-size:12px">Click any field card on the canvas to edit it here</div>
+    </div>`;
+}
+
+/* ─────────────────────────────────────────────────────────
+   setProp  — NO renderAllCards(), only patchCard()
+───────────────────────────────────────────────────────── */
+function setProp(key, value) {
   const field = formFields.find(f => f.id === selectedId);
   if (!field) return;
   field[key] = value;
-  // ✅ Update only the card in the canvas — never full re-render (which kills input focus)
-  updateCardInPlace(selectedId);
+  patchCard(selectedId);
 }
 
-// ── Update a single card's label + preview without re-rendering the whole canvas ──
-function updateCardInPlace(id) {
+/* Update only the one card that changed */
+function patchCard(id) {
   const field = formFields.find(f => f.id === id);
   if (!field) return;
-  const card = document.querySelector(`.form-field-card[data-id="${id}"]`);
+  const card = document.querySelector('.field-card[data-id="'+id+'"]');
   if (!card) return;
 
-  // Update label text (keep required star and type badge)
-  const labelEl = card.querySelector('.form-field-label');
-  if (labelEl) {
-    labelEl.innerHTML =
-      escHtml(field.label) +
-      (field.required ? '<span class="text-danger ms-1">*</span>' : '') +
-      `<span class="form-field-type-badge">${field.type}</span>`;
+  // Label text
+  const lblEl = card.querySelector('.lbl-text');
+  if (lblEl) lblEl.textContent = field.label;
+
+  // Required star
+  const starEl = card.querySelector('.req-star');
+  if (field.required && !starEl) {
+    card.querySelector('.field-card-label')
+        .insertAdjacentHTML('beforeend','<span class="req-star">*</span>');
+  } else if (!field.required && starEl) {
+    starEl.remove();
   }
 
-  // Update field preview
-  const previewEl = card.querySelector('.field-preview');
-  if (previewEl) previewEl.innerHTML = renderFieldPreview(field);
+  // Preview widget (placeholder text, options list)
+  const pw = card.querySelector('.preview-wrap');
+  if (pw) pw.innerHTML = previewHTML(field);
 
-  // Update help text
-  let helpEl = card.querySelector('.field-help-inline');
+  // Help text
+  let helpEl = card.querySelector('.help-txt');
   if (field.helpText) {
     if (!helpEl) {
-      previewEl.insertAdjacentHTML('afterend',
-        `<div class="field-help-inline" style="font-size:11px;color:var(--text-muted);margin-top:4px"></div>`);
-      helpEl = card.querySelector('.field-help-inline');
+      card.querySelector('.field-card-body')
+          .insertAdjacentHTML('beforeend',
+            '<div class="help-txt" style="font-size:11px;color:var(--text-muted);margin-top:4px"></div>');
+      helpEl = card.querySelector('.help-txt');
     }
     helpEl.textContent = field.helpText;
   } else if (helpEl) {
@@ -439,141 +598,138 @@ function updateCardInPlace(id) {
   }
 }
 
-function updateOption(index, value) {
+/* ─────────────────────────────────────────────────────────
+   CHOICES  (dropdown / radio / checkbox)
+───────────────────────────────────────────────────────── */
+function renderChoicesList() {
+  const field = formFields.find(f => f.id === selectedId);
+  const list  = document.getElementById('choices-list');
+  if (!field || !list) return;
+
+  list.innerHTML = (field.options || []).map((opt, i) => `
+    <div class="opt-row">
+      <span class="opt-grip" title="Drag to reorder">⠿</span>
+      <input type="text" class="form-control form-control-sm flex-grow-1"
+             value="${esc(opt)}"
+             placeholder="Choice ${i+1}"
+             oninput="setChoice(${i},this.value)">
+      <button class="btn btn-icon btn-sm btn-light text-danger"
+              onclick="removeChoice(${i})" title="Remove">
+        <i class="bi bi-x-lg" style="font-size:10px"></i>
+      </button>
+    </div>`).join('');
+
+  // Sortable for choices
+  if (list._sortableInst) list._sortableInst.destroy();
+  list._sortableInst = Sortable.create(list, {
+    animation: 120,
+    handle: '.opt-grip',
+    onEnd(evt) {
+      const f = formFields.find(x => x.id === selectedId);
+      if (!f) return;
+      const [mv] = f.options.splice(evt.oldIndex, 1);
+      f.options.splice(evt.newIndex, 0, mv);
+      renderChoicesList();
+      patchCard(selectedId);
+    }
+  });
+}
+
+/* setChoice — only updates data + card, NEVER re-renders choices list (keeps focus) */
+function setChoice(index, value) {
   const field = formFields.find(f => f.id === selectedId);
   if (!field) return;
   field.options[index] = value;
-  // ✅ Only refresh the canvas card preview — don't touch the properties panel (keeps focus)
-  updateCardInPlace(selectedId);
+  patchCard(selectedId);
 }
 
-function addOption() {
+function addChoice() {
   const field = formFields.find(f => f.id === selectedId);
   if (!field) return;
-  field.options.push("New Option");
-  // Refresh only the options list inside the properties panel
-  refreshOptionsList(field);
-  updateCardInPlace(selectedId);
-  // Focus the newly added input
-  const rows = document.querySelectorAll('#options-list .option-row input');
-  if (rows.length) rows[rows.length - 1].focus();
+  field.options.push('Option ' + (field.options.length + 1));
+  renderChoicesList();
+  patchCard(selectedId);
+  // Focus the new input
+  const inputs = document.querySelectorAll('#choices-list input');
+  if (inputs.length) { inputs[inputs.length-1].focus(); inputs[inputs.length-1].select(); }
 }
 
-function removeOption(index) {
+function removeChoice(index) {
   const field = formFields.find(f => f.id === selectedId);
   if (!field) return;
   field.options.splice(index, 1);
-  refreshOptionsList(field);
-  updateCardInPlace(selectedId);
+  renderChoicesList();
+  patchCard(selectedId);
 }
 
-// ── Re-render just the options list inside the properties panel ──
-function refreshOptionsList(field) {
-  const list = document.getElementById("options-list");
-  if (!list) return;
-  list.innerHTML = (field.options || []).map((opt, i) => `
-    <div class="option-row" id="opt-row-${i}">
-      <span class="option-drag-handle" style="cursor:grab;color:var(--text-muted);padding:0 4px;font-size:13px">⠿</span>
-      <input type="text" class="form-control form-control-sm flex-grow-1"
-             value="${escHtml(opt)}"
-             oninput="updateOption(${i}, this.value)"
-             placeholder="Option ${i + 1}">
-      <button class="btn btn-icon btn-sm btn-light text-danger" onclick="removeOption(${i})" title="Remove">
-        <i class="bi bi-x" style="font-size:12px"></i>
-      </button>
-    </div>`).join("");
+/* ─────────────────────────────────────────────────────────
+   HELPERS
+───────────────────────────────────────────────────────── */
+function refreshEmpty() {
+  document.getElementById('canvas-drop').style.display = formFields.length ? 'none' : '';
+}
+function refreshCount() {
+  const n = formFields.length;
+  document.getElementById('field-count').textContent = n + ' field' + (n!==1?'s':'');
+}
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function deleteField(id) {
-  formFields = formFields.filter(f => f.id !== id);
-  if (selectedId === id) {
-    selectedId = null;
-    document.getElementById("props-body").innerHTML = `
-      <div class="empty-state" style="padding:40px 16px">
-        <i class="bi bi-cursor-fill" style="font-size:2rem"></i>
-        <h6 class="mt-2">Select a field</h6>
-        <p style="font-size:12px">Click a field in the canvas to edit its properties.</p>
-      </div>`;
-  }
-  renderCanvas();
-  showToast("Field removed.", "info");
-}
-
-function duplicateField(id) {
-  const field = formFields.find(f => f.id === id);
-  if (!field) return;
-  const clone = JSON.parse(JSON.stringify(field));
-  clone.id = "field_" + Date.now();
-  const idx = formFields.findIndex(f => f.id === id);
-  formFields.splice(idx + 1, 0, clone);
-  renderCanvas();
-}
-
-function updateFieldCount() {
-  document.getElementById("field-count").textContent = `${formFields.length} field${formFields.length !== 1 ? "s" : ""}`;
-}
-
-// ── Save form ────────────────────────────────────────────────
+/* ─────────────────────────────────────────────────────────
+   SAVE
+───────────────────────────────────────────────────────── */
 async function saveForm(publish) {
-  const title = document.getElementById("form-title-input").value.trim();
-  if (!title) { showToast("Please enter a form title.", "warning"); return; }
-  if (!formFields.length) { showToast("Add at least one field.", "warning"); return; }
+  const title = document.getElementById('form-title-input').value.trim();
+  if (!title)             { showToast('Please enter a form title.','warning'); return; }
+  if (!formFields.length) { showToast('Add at least one field.','warning');   return; }
 
-  const cleanFields = formFields.map(({ id, type, label, placeholder, required, helpText, options }) => ({
-    id, type, label, placeholder: placeholder || "", required: !!required, helpText: helpText || "",
-    options: options || []
+  const cleanFields = formFields.map(f => ({
+    id:f.id, type:f.type, label:f.label||'',
+    placeholder:f.placeholder||'', required:!!f.required,
+    helpText:f.helpText||'', options:f.options||[]
   }));
-
+  const data = {
+    title,
+    description: document.getElementById('form-desc-input').value.trim(),
+    fields: cleanFields,
+    published: publish
+  };
   try {
-    const data = {
-      title,
-      description: document.getElementById("form-desc-input").value.trim(),
-      fields: cleanFields,
-      published: publish
-    };
-
     if (editingFormId) {
       await FS.updateForm(editingFormId, data);
-      showToast(publish ? "Form published!" : "Form saved!", "success");
     } else {
       const id = await FS.createForm(data);
       editingFormId = id;
-      history.replaceState(null, "", `?id=${id}`);
-      showToast(publish ? `Form published! URL: ${location.origin}/form-view.html?id=${id}` : "Form saved as draft!", "success", publish ? "Published!" : "Saved!");
+      history.replaceState(null,'',`?id=${id}`);
     }
-
-    if (publish) {
-      const url = `${location.origin.replace("file://","https://yoursite.com")}/form-view.html?id=${editingFormId}`;
-      document.getElementById("page-title").textContent = `Form Builder · ${url}`;
-    }
-  } catch (e) {
-    showToast("Error saving form: " + e.message, "danger");
+    showToast(publish ? '✅ Form published!' : '💾 Draft saved!', 'success');
+  } catch(e) {
+    showToast('Save failed: ' + e.message, 'danger');
   }
 }
 
-// ── Preview modal ────────────────────────────────────────────
+/* ─────────────────────────────────────────────────────────
+   PREVIEW
+───────────────────────────────────────────────────────── */
 function previewForm() {
-  const title = document.getElementById("form-title-input").value || "Preview";
-  const desc  = document.getElementById("form-desc-input").value;
-  document.getElementById("preview-body").innerHTML = `
+  const title = document.getElementById('form-title-input').value.trim() || 'Untitled Form';
+  const desc  = document.getElementById('form-desc-input').value.trim();
+  document.getElementById('preview-body').innerHTML = `
     <div style="background:linear-gradient(135deg,#2563eb,#06b6d4);padding:28px 32px;color:#fff">
-      <h4 style="margin:0;font-weight:700">${escHtml(title)}</h4>
-      ${desc ? `<p style="margin:8px 0 0;opacity:.85;font-size:13.5px">${escHtml(desc)}</p>` : ""}
+      <h4 style="margin:0;font-weight:700">${esc(title)}</h4>
+      ${desc?`<p style="margin:8px 0 0;opacity:.85;font-size:14px">${esc(desc)}</p>`:''}
     </div>
     <div style="padding:24px 32px">
-      ${formFields.map(f => `
+      ${formFields.map(f=>`
         <div class="mb-4">
-          <label class="form-label fw-600">${escHtml(f.label)}${f.required?'<span class="text-danger ms-1">*</span>':""}</label>
-          ${renderFieldPreview(f)}
-          ${f.helpText ? `<div class="form-text">${escHtml(f.helpText)}</div>` : ""}
-        </div>`).join("")}
-      <button class="btn btn-primary w-100 py-2" disabled>Submit Response</button>
+          <label class="form-label fw-600">${esc(f.label)}${f.required?'<span class="text-danger ms-1">*</span>':''}</label>
+          ${previewHTML(f).replace(/ disabled/g,'')}
+          ${f.helpText?`<div class="form-text">${esc(f.helpText)}</div>`:''}
+        </div>`).join('')}
+      <button class="btn btn-primary w-100 py-2 mt-2" disabled>Submit Response</button>
     </div>`;
-  new bootstrap.Modal(document.getElementById("preview-modal")).show();
-}
-
-function escHtml(s) {
-  return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  new bootstrap.Modal(document.getElementById('preview-modal')).show();
 }
 </script>
 </body>
