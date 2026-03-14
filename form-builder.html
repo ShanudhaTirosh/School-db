@@ -304,10 +304,15 @@ function initSortable() {
   });
 }
 
-// ── Select field → show properties ──────────────────────────
+// ── Select field → highlight card + show properties ─────────
 function selectField(id) {
+  // Remove selected class from all cards
+  document.querySelectorAll('.form-field-card').forEach(c => c.classList.remove('selected'));
+  // Add to clicked card
+  const card = document.querySelector(`.form-field-card[data-id="${id}"]`);
+  if (card) card.classList.add('selected');
+
   selectedId = id;
-  renderCanvas();
   const field = formFields.find(f => f.id === id);
   if (!field) return;
   renderProperties(field);
@@ -319,87 +324,179 @@ function renderProperties(field) {
     <div class="prop-group">
       <div class="prop-group-title">Label & Placeholder</div>
       <div class="mb-2">
-        <label class="form-label">Label</label>
-        <input type="text" class="form-control form-control-sm" id="prop-label" value="${escHtml(field.label)}" oninput="updateProp('label',this.value)">
+        <label class="form-label">Field Label</label>
+        <input type="text" class="form-control form-control-sm" id="prop-label"
+               value="${escHtml(field.label)}"
+               oninput="updateProp('label', this.value)"
+               placeholder="e.g. Student Name">
       </div>
       ${!hasOptions && field.type !== "date" && field.type !== "file" ? `
       <div>
-        <label class="form-label">Placeholder</label>
-        <input type="text" class="form-control form-control-sm" id="prop-placeholder" value="${escHtml(field.placeholder||"")}" oninput="updateProp('placeholder',this.value)">
+        <label class="form-label">Placeholder Text</label>
+        <input type="text" class="form-control form-control-sm" id="prop-placeholder"
+               value="${escHtml(field.placeholder || '')}"
+               oninput="updateProp('placeholder', this.value)"
+               placeholder="e.g. Enter your name…">
       </div>` : ""}
     </div>
 
     <div class="prop-group">
       <div class="prop-group-title">Validation</div>
       <div class="form-check form-switch">
-        <input class="form-check-input" type="checkbox" id="prop-required" ${field.required?"checked":""} onchange="updateProp('required',this.checked)">
-        <label class="form-check-label" for="prop-required" style="font-size:13px">Required field</label>
+        <input class="form-check-input" type="checkbox" id="prop-required"
+               ${field.required ? "checked" : ""}
+               onchange="updateProp('required', this.checked)">
+        <label class="form-check-label" for="prop-required" style="font-size:13px">
+          Required field <small class="text-danger">*</small>
+        </label>
       </div>
     </div>
 
     <div class="prop-group">
       <div class="prop-group-title">Help Text</div>
-      <input type="text" class="form-control form-control-sm" id="prop-help" value="${escHtml(field.helpText||"")}" placeholder="Helper text shown below field" oninput="updateProp('helpText',this.value)">
+      <input type="text" class="form-control form-control-sm" id="prop-help"
+             value="${escHtml(field.helpText || '')}"
+             placeholder="Hint shown below the field…"
+             oninput="updateProp('helpText', this.value)">
+      <div class="form-text">Optional guidance for the student</div>
     </div>
 
     ${hasOptions ? `
     <div class="prop-group">
-      <div class="prop-group-title">Options <button class="btn btn-sm btn-light ms-2" style="font-size:11px;padding:2px 8px" onclick="addOption()"><i class="bi bi-plus"></i> Add</button></div>
-      <div id="options-list">
-        ${(field.options||[]).map((opt,i) => `
-          <div class="option-row" id="opt-row-${i}">
-            <input type="text" class="form-control form-control-sm flex-grow-1" value="${escHtml(opt)}" oninput="updateOption(${i},this.value)">
-            <button class="btn btn-icon btn-sm btn-light text-danger" onclick="removeOption(${i})"><i class="bi bi-x" style="font-size:12px"></i></button>
-          </div>`).join("")}
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <div class="prop-group-title mb-0">Choices</div>
+        <button class="btn btn-sm btn-primary" style="font-size:11px;padding:3px 10px;border-radius:6px"
+                onclick="addOption()">
+          <i class="bi bi-plus-lg me-1"></i>Add Choice
+        </button>
       </div>
+      <div id="options-list"></div>
+      ${!field.options || field.options.length === 0
+        ? `<div class="text-muted text-center py-2" style="font-size:12px;border:1px dashed var(--border-color);border-radius:6px">
+             No choices yet — click Add Choice
+           </div>` : ""}
     </div>` : ""}
 
     <div class="prop-group">
-      <div class="prop-group-title">Actions</div>
+      <div class="prop-group-title">Field Actions</div>
       <div class="d-flex gap-2">
-        <button class="btn btn-sm btn-light flex-grow-1" onclick="duplicateField('${field.id}')"><i class="bi bi-copy me-1"></i>Duplicate</button>
-        <button class="btn btn-sm btn-danger flex-grow-1" onclick="deleteField('${field.id}')"><i class="bi bi-trash me-1"></i>Delete</button>
+        <button class="btn btn-sm btn-light flex-grow-1"
+                onclick="duplicateField('${field.id}')">
+          <i class="bi bi-copy me-1"></i>Duplicate
+        </button>
+        <button class="btn btn-sm btn-danger flex-grow-1"
+                onclick="deleteField('${field.id}')">
+          <i class="bi bi-trash me-1"></i>Delete
+        </button>
       </div>
     </div>`;
+
+  // Populate options list after innerHTML is set
+  if (hasOptions) {
+    refreshOptionsList(field);
+  }
 }
 
 function updateProp(key, value) {
   const field = formFields.find(f => f.id === selectedId);
   if (!field) return;
   field[key] = value;
-  renderCanvas();
+  // ✅ Update only the card in the canvas — never full re-render (which kills input focus)
+  updateCardInPlace(selectedId);
+}
+
+// ── Update a single card's label + preview without re-rendering the whole canvas ──
+function updateCardInPlace(id) {
+  const field = formFields.find(f => f.id === id);
+  if (!field) return;
+  const card = document.querySelector(`.form-field-card[data-id="${id}"]`);
+  if (!card) return;
+
+  // Update label text (keep required star and type badge)
+  const labelEl = card.querySelector('.form-field-label');
+  if (labelEl) {
+    labelEl.innerHTML =
+      escHtml(field.label) +
+      (field.required ? '<span class="text-danger ms-1">*</span>' : '') +
+      `<span class="form-field-type-badge">${field.type}</span>`;
+  }
+
+  // Update field preview
+  const previewEl = card.querySelector('.field-preview');
+  if (previewEl) previewEl.innerHTML = renderFieldPreview(field);
+
+  // Update help text
+  let helpEl = card.querySelector('.field-help-inline');
+  if (field.helpText) {
+    if (!helpEl) {
+      previewEl.insertAdjacentHTML('afterend',
+        `<div class="field-help-inline" style="font-size:11px;color:var(--text-muted);margin-top:4px"></div>`);
+      helpEl = card.querySelector('.field-help-inline');
+    }
+    helpEl.textContent = field.helpText;
+  } else if (helpEl) {
+    helpEl.remove();
+  }
 }
 
 function updateOption(index, value) {
   const field = formFields.find(f => f.id === selectedId);
   if (!field) return;
   field.options[index] = value;
-  renderCanvas();
+  // ✅ Only refresh the canvas card preview — don't touch the properties panel (keeps focus)
+  updateCardInPlace(selectedId);
 }
 
 function addOption() {
   const field = formFields.find(f => f.id === selectedId);
   if (!field) return;
   field.options.push("New Option");
-  renderCanvas();
-  renderProperties(field);
+  // Refresh only the options list inside the properties panel
+  refreshOptionsList(field);
+  updateCardInPlace(selectedId);
+  // Focus the newly added input
+  const rows = document.querySelectorAll('#options-list .option-row input');
+  if (rows.length) rows[rows.length - 1].focus();
 }
 
 function removeOption(index) {
   const field = formFields.find(f => f.id === selectedId);
   if (!field) return;
   field.options.splice(index, 1);
-  renderCanvas();
-  renderProperties(field);
+  refreshOptionsList(field);
+  updateCardInPlace(selectedId);
+}
+
+// ── Re-render just the options list inside the properties panel ──
+function refreshOptionsList(field) {
+  const list = document.getElementById("options-list");
+  if (!list) return;
+  list.innerHTML = (field.options || []).map((opt, i) => `
+    <div class="option-row" id="opt-row-${i}">
+      <span class="option-drag-handle" style="cursor:grab;color:var(--text-muted);padding:0 4px;font-size:13px">⠿</span>
+      <input type="text" class="form-control form-control-sm flex-grow-1"
+             value="${escHtml(opt)}"
+             oninput="updateOption(${i}, this.value)"
+             placeholder="Option ${i + 1}">
+      <button class="btn btn-icon btn-sm btn-light text-danger" onclick="removeOption(${i})" title="Remove">
+        <i class="bi bi-x" style="font-size:12px"></i>
+      </button>
+    </div>`).join("");
 }
 
 function deleteField(id) {
   formFields = formFields.filter(f => f.id !== id);
   if (selectedId === id) {
     selectedId = null;
-    document.getElementById("props-body").innerHTML = `<div class="empty-state" style="padding:40px 16px"><i class="bi bi-cursor-fill" style="font-size:2rem"></i><h6 class="mt-2">Select a field</h6></div>`;
+    document.getElementById("props-body").innerHTML = `
+      <div class="empty-state" style="padding:40px 16px">
+        <i class="bi bi-cursor-fill" style="font-size:2rem"></i>
+        <h6 class="mt-2">Select a field</h6>
+        <p style="font-size:12px">Click a field in the canvas to edit its properties.</p>
+      </div>`;
   }
   renderCanvas();
+  showToast("Field removed.", "info");
 }
 
 function duplicateField(id) {
